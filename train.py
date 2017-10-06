@@ -16,7 +16,7 @@ import torchvision.datasets as datasets
 import torchvision.models as models
 import pdb
 
-from dataloader_video import VideoDataset
+import dataloader_video
 
 
 model_names = sorted(name for name in models.__dict__
@@ -53,32 +53,53 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
 parser.add_argument('--pretrained', dest='pretrained', action='store_true',
                     help='use pre-trained model')
 # add by bolei
-parser.add_argument('--split', default='0803',help='this is the split to use')
-parser.add_argument('--data', default= '/data/vision/oliva/scratch/moments_collage_0715')
+parser.add_argument('--split', default='kinetics',help='this is the split to use')
+parser.add_argument('--data', default= '/data/vision/oliva/scratch/kinetics_processed_data/kinetics_frames25')
+
 parser.add_argument('--root_model',default='model')
 parser.add_argument('--store_name', default='')
 best_prec1 = 0
 
-def return_split():
+def return_kinetics_split():
     # return the split information
-    filename_categories = 'split/categories_%s.txt'% args.split
-    filename_imglist_train = 'split/train_%s.txt' % args.split
-    filename_imglist_val = 'split/val_%s.txt' % args.split
+    filename_categories = 'kinetics/categories.txt'
+    filename_imglist_train = 'kinetics/train_videofolder.txt'
+    filename_imglist_val = 'kinetics/val_videofolder.txt'
+    args.data = '/data/vision/oliva/scratch/kinetics_processed_data/kinetics_frames25'
     with open(filename_categories) as f:
         lines = f.readlines()
     categories = [item.rstrip() for item in lines]
     return categories, filename_imglist_train, filename_imglist_val
+
+def return_moments_split():
+    args.split = args.split + '0803'
+    filename_categories = 'split/categories_0803.txt'
+    filename_imglist_train = 'split/train_0803.txt'
+    filename_imglist_val = 'split/val_0803.txt'
+    args.data = '/data/vision/oliva/scratch/moments_collage_0715'
+    with open(filename_categories) as f:
+        lines = f.readlines()
+    categories = [item.rstrip() for item in lines]
+    return categories, filename_imglist_train, filename_imglist_val
+
+
 
 def main():
     global args, best_prec1
     args = parser.parse_args()
 
     # bookkeeping the model
-    if os.path.isdir(args.root_model):
+    if not os.path.isdir(args.root_model):
         os.mkdir(args.root_model)
     args.store_name = '%s/%s_%s' % (args.root_model, args.arch, args.split)
     # load the split
-    categories, file_imglist_train, file_imglist_val = return_split()
+    if args.split == 'kinetics':
+        categories, file_imglist_train, file_imglist_val = return_kinetics_split()
+        dataloader_split = dataloader_video.KineticsFrameDataset
+    elif args.split == 'moments':
+        categories, file_imglist_train, file_imglist_val = return_moments_split()
+        dataloader_split = dataloader_video.MomentsDataset
+
     num_classes = len(categories)
 
     # create model
@@ -129,14 +150,14 @@ def main():
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
 
-    train_dataset = VideoDataset(traindir, file_imglist_train, transform=transforms.Compose([
+    train_dataset = dataloader_split(traindir, file_imglist_train, transform=transforms.Compose([
             transforms.RandomSizedCrop(224),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             normalize,
         ]))
 
-    val_dataset = VideoDataset(valdir, file_imglist_val, transform=transforms.Compose([
+    val_dataset = dataloader_split(valdir, file_imglist_val, transform=transforms.Compose([
             transforms.CenterCrop(224),
             transforms.ToTensor(),
             normalize,
@@ -272,7 +293,7 @@ def validate(val_loader, model, criterion):
 def save_checkpoint(state, is_best):
     torch.save(state, '%s_checkpoint.pth.tar'%(args.store_name))
     if is_best:
-        shutil.copyfile(filename, '%s_best.pth.tar'%(args.store_name))
+        shutil.copyfile('%s_checkpoint.pth.tar'%(args.store_name), '%s_best.pth.tar'%(args.store_name))
 
 
 class AverageMeter(object):
