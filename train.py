@@ -31,7 +31,7 @@ parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet18',
                         ' (default: resnet18)')
 parser.add_argument('-j', '--workers', default=6, type=int, metavar='N',
                     help='number of data loading workers (default: 6)')
-parser.add_argument('--epochs', default=90, type=int, metavar='N',
+parser.add_argument('--epochs', default=160, type=int, metavar='N',
                     help='number of total epochs to run')
 
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
@@ -76,7 +76,8 @@ def return_moments_split():
     filename_categories = 'split/categories_0803.txt'
     filename_imglist_train = 'split/train_0803.txt'
     filename_imglist_val = 'split/val_0803.txt'
-    args.data = '/data/vision/oliva/scratch/moments_collage_0715'
+   # args.data = '/data/vision/oliva/scratch/moments_collage_0715'
+    args.data = '/data/vision/oliva/scratch/moments_frames_0707'
     with open(filename_categories) as f:
         lines = f.readlines()
     categories = [item.rstrip() for item in lines]
@@ -95,10 +96,12 @@ def main():
     # load the split
     if args.split == 'kinetics':
         categories, file_imglist_train, file_imglist_val = return_kinetics_split()
-        dataloader_split = dataloader_video.KineticsFrameDataset
+        dataloader_split = dataloader_video.FrameDataset
+        range_frame = 150
     elif args.split == 'moments':
         categories, file_imglist_train, file_imglist_val = return_moments_split()
-        dataloader_split = dataloader_video.MomentsDataset
+        dataloader_split = dataloader_video.FrameDataset
+        range_frame = 75
 
     num_classes = len(categories)
 
@@ -150,14 +153,14 @@ def main():
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
 
-    train_dataset = dataloader_split(traindir, file_imglist_train, transform=transforms.Compose([
+    train_dataset = dataloader_split(traindir, file_imglist_train, range_frame=range_frame, transform=transforms.Compose([
             transforms.RandomSizedCrop(224),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             normalize,
         ]))
 
-    val_dataset = dataloader_split(valdir, file_imglist_val, transform=transforms.Compose([
+    val_dataset = dataloader_split(valdir, file_imglist_val, range_frame=range_frame, transform=transforms.Compose([
             transforms.CenterCrop(224),
             transforms.ToTensor(),
             normalize,

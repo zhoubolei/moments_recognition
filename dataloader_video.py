@@ -12,8 +12,8 @@ import torch.optim as optim
 
 import numpy as np
 
-class MomentsDataset(Dataset):
-    def __init__(self, root_dataset, file_videos, transform=None, size_frame=256):
+class CollageDataset(Dataset):
+    def __init__(self, root_dataset, file_videos, transform=None, size_frame=256, range_frame=None):
         self.root_dataset = root_dataset
         self.transform = transform
         self.size_frame = size_frame
@@ -44,12 +44,14 @@ class MomentsDataset(Dataset):
         idx_random = np.random.randint(num_frames)
         return img.crop((idx_random*self.size_frame, 0, (idx_random+1)*self.size_frame, img.size[1]))
 
-class KineticsFrameDataset(Dataset):
+class FrameDataset(Dataset):
+    # the input file will be like [xxxx class_idx]
     # load the frames of kinetics
-    def __init__(self, root_dataset, file_frames, transform=None, size_frame=256):
+    def __init__(self, root_dataset, file_frames, transform=None, size_frame=256, range_frame=150):
         self.root_dataset = root_dataset
         self.transform = transform
         self.size_frame = size_frame
+        self.range_frame = range_frame
         with open(file_frames) as f:
             lines = f.readlines()
         self.videofolders = [line.split()[0] for line in lines]
@@ -59,7 +61,7 @@ class KineticsFrameDataset(Dataset):
 
     def __getitem__(self, index):
         # todo: input a imglist file with the number of frames predefined
-        randIDX = np.random.randint(150) + 1
+        randIDX = np.random.randint(self.range_frame) + 1
         file_frame = os.path.join(self.root_dataset, self.videofolders[index], '%06d.jpg'%randIDX)
         while not os.path.exists(file_frame):
             # if the video frame is not readable
@@ -76,3 +78,26 @@ class KineticsFrameDataset(Dataset):
 
     def __len__(self):
         return len(self.videofolders)
+
+class SimpleDataset(Dataset):
+
+    def __init__(self,imglist,transform=None):
+
+        if len(imglist) == 0:
+            raise(RuntimeError("Found 0 images in subfolders of: " + root + "\n"
+                               "Supported image extensions are: " + ",".join(IMG_EXTENSIONS)))
+
+        self.imgs = imglist
+        self.transform = transform
+
+    def __getitem__(self, index):
+        path = self.imgs[index]
+        target = None
+        img = Image.open(path).convert('RGB')
+        if self.transform is not None:
+            img = self.transform(img)
+        return img, path
+
+    def __len__(self):
+        return len(self.imgs)
+
